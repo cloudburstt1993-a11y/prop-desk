@@ -35,7 +35,7 @@ jobs:
           fi
           python3 render.py data.json body.html data_nfl.json
           python3 -c "import json; d=json.load(open('data.json')); h=json.load(open('history.json')); assert 'record' in h and 'archive' in h; print(d['date'], len(d['props']), 'NBA props')"
-          python3 render_site.py body.html .. props.bookcliffweb.com
+          python3 render_site.py body.html ..
           rm -f body.html data.json data_nfl.json
           rm -rf cache __pycache__
 
@@ -43,7 +43,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html CNAME .nojekyll pipeline/history.json pipeline/history_nfl.json
+          git add -A index.html .nojekyll pipeline/history.json pipeline/history_nfl.json
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Refresh data $(TZ=America/Denver date '+%Y-%m-%d %H:%M') MT"
           for i in 1 2 3 4; do git push && break; sleep $((2**i)); git pull --rebase; done

@@ -1,6 +1,9 @@
 """Wrap index.html (artifact page content) into a standalone site for GitHub Pages.
 
     python3 render_site.py [index.html] [site_dir] [domain]
+
+Pass a domain to write a CNAME file for a custom domain; pass "-" (the default)
+to serve at the plain GitHub Pages address.
 """
 import os
 import sys
@@ -8,7 +11,7 @@ import sys
 here = os.path.dirname(os.path.abspath(__file__))
 src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, "index.html")
 out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(here, "site")
-domain = sys.argv[3] if len(sys.argv) > 3 else "props.bookcliffweb.com"
+domain = sys.argv[3] if len(sys.argv) > 3 else "-"
 
 head = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
@@ -21,7 +24,11 @@ with open(src) as f:
     body = f.read()
 with open(os.path.join(out, "index.html"), "w") as f:
     f.write(head + body + "</body></html>")
-with open(os.path.join(out, "CNAME"), "w") as f:
-    f.write(domain + "\n")
+cname = os.path.join(out, "CNAME")
+if domain != "-":
+    with open(cname, "w") as f:
+        f.write(domain + "\n")
+elif os.path.exists(cname):
+    os.remove(cname)
 open(os.path.join(out, ".nojekyll"), "w").close()
-print(f"site ready in {out} for {domain}")
+print(f"site ready in {out}" + (f" for {domain}" if domain != "-" else ""))
