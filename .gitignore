@@ -1,0 +1,4 @@
+pipeline/cache/
+pipeline/__pycache__/
+pipeline/data*.json
+pipeline/body.html

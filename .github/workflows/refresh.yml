@@ -1,0 +1,49 @@
+name: Refresh props
+
+# 10:38 AM, 2:38 PM and 4:38 PM Mountain (cron is UTC; Mountain Daylight Time shown).
+on:
+  schedule:
+    - cron: "38 16,20,22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build NBA and NFL boards
+        working-directory: pipeline
+        run: |
+          python3 build.py --history history.json --out data.json
+          if ! python3 build_nfl.py --history history_nfl.json --out data_nfl.json; then
+            echo "NFL build failed; publishing NBA only"
+            git checkout -- history_nfl.json
+            rm -f data_nfl.json
+          fi
+          python3 render.py data.json body.html data_nfl.json
+          python3 -c "import json; d=json.load(open('data.json')); h=json.load(open('history.json')); assert 'record' in h and 'archive' in h; print(d['date'], len(d['props']), 'NBA props')"
+          python3 render_site.py body.html .. props.bookcliffweb.com
+          rm -f body.html data.json data_nfl.json
+          rm -rf cache __pycache__
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html CNAME .nojekyll pipeline/history.json pipeline/history_nfl.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Refresh data $(TZ=America/Denver date '+%Y-%m-%d %H:%M') MT"
+          for i in 1 2 3 4; do git push && break; sleep $((2**i)); git pull --rebase; done
