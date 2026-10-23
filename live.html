@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NBA &amp; NFL Prop Desk</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 15px system-ui, -apple-system, sans-serif; background: #0d121a; color: #93a0b3; }
+  @media (prefers-color-scheme: light) { body { background: #eef1f5; color: #5a6575; } }
+  a { color: #ee8a3e; }
+</style>
+</head>
+<body>
+<p id="msg">Loading the latest numbers…</p>
+<script>
+// Always open the newest build: ask GitHub for the latest commit, then load index.html
+// from that exact commit, so no cache can serve old numbers.
+(async () => {
+  const repo = "cloudburstt1993-a11y/prop-desk";
+  const raw = ref => `https://raw.githubusercontent.com/${repo}/${ref}/index.html`;
+  let url = raw("main");
+  try {
+    const r = await fetch(`https://api.github.com/repos/${repo}/commits/main`, { cache: "no-store" });
+    if (r.ok) url = raw((await r.json()).sha);
+  } catch (e) {}
+  try {
+    const page = await fetch(url, { cache: "no-store" });
+    if (!page.ok) throw new Error(page.status);
+    const html = await page.text();
+    document.open(); document.write(html); document.close();
+  } catch (e) {
+    document.getElementById("msg").innerHTML = `Couldn't load the latest numbers. <a href="https://claude.ai/artifact/LPzganiobYTEbhcnaUvfHa">Open the claude.ai copy</a> or try again in a minute.`;
+  }
+})();
+</script>
+</body>
+</html>
