@@ -732,7 +732,11 @@ function pickNotes(pk, g) {
   const against = pk.side === "over" ? pk.line < pk.openLine : pk.line > pk.openLine;
   if (toward) n.push(["warn", `Line moved ${pk.openLine} → ${pk.line}: market moving this way, number got worse`]);
   if (against) n.push(["good", `Line moved ${pk.openLine} → ${pk.line}: better number for this side`]);
-  if (Math.abs(pk.gap) >= 0.12) n.push(["warn", "Big gap: gaps this size have done worst on real lines"]);
+  const bk = BUCKETS.find(b => Math.abs(pk.gap) >= b.lo && Math.abs(pk.gap) < b.hi);
+  if (bk && bk.w + bk.l >= 50) {
+    const roi = bk.units / (bk.w + bk.l);
+    n.push([roi >= 0 ? "good" : "warn", `Gaps this size in the ${C.name}: ${(bk.w / (bk.w + bk.l) * 100).toFixed(1)}% won, ${roi >= 0 ? "+" : ""}${(roi * 100).toFixed(1)}% per bet (${(bk.w + bk.l).toLocaleString()} real lines)`]);
+  }
   if (pk.newTeam && pk.nCur < 10) n.push(["warn", `New team this season (${pk.nCur} game${pk.nCur === 1 ? "" : "s"} so far); role may differ`]);
   const sp = g.spreadNum == null ? null : (pk.team === g.home ? g.spreadNum : -g.spreadNum);
   if (sp != null && Math.abs(sp) >= 8 && (pk.min || 0) >= 30) n.push(["warn", `${Math.abs(sp)}-pt spread: blowout could cut minutes`]);
