@@ -24,6 +24,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Finished games never change, so keep downloaded box scores between runs.
+      - uses: actions/cache@v4
+        with:
+          path: pipeline/cache
+          key: espn-${{ github.run_id }}
+          restore-keys: espn-
+
       - name: Build NBA and NFL boards
         working-directory: pipeline
         run: |
@@ -37,7 +44,7 @@ jobs:
           python3 -c "import json; d=json.load(open('data.json')); h=json.load(open('history.json')); assert 'record' in h and 'archive' in h; print(d['date'], len(d['props']), 'NBA props')"
           python3 render_site.py body.html ..
           rm -f body.html data.json data_nfl.json
-          rm -rf cache __pycache__
+          rm -rf __pycache__
 
       - name: Commit and push
         run: |

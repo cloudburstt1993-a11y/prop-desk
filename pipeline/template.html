@@ -67,6 +67,14 @@ h1 { font-family: var(--display); font-weight: 700; font-size: 34px; line-height
 .sportsw button { border: 0; background: transparent; padding: 5px 16px; border-radius: 999px; cursor: pointer; font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: .04em; color: var(--muted); }
 .sportsw button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 
+/* update button */
+.runrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.runbtn { display: inline-block; text-decoration: none; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--accent); color: var(--accent); background: var(--surface); cursor: pointer; }
+.runbtn:hover { background: var(--accent); color: var(--accent-ink); }
+.runbtn[aria-busy="true"] { opacity: .7; pointer-events: none; }
+.runstat { max-width: 340px; text-align: right; font-size: 12.5px; color: var(--muted); }
+.runstat strong { color: var(--ink); }
+
 /* slate rail */
 .rail { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
 .game { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; cursor: pointer; display: grid; gap: 6px; }
@@ -213,7 +221,11 @@ footer { color: var(--muted); font-size: 12px; display: grid; gap: 4px; }
     </div>
     <div style="display:grid;gap:6px;justify-items:end">
       <div class="sportsw" role="group" aria-label="Sport"><button data-sport="nba" aria-pressed="true">NBA</button><button data-sport="nfl" aria-pressed="false">NFL</button></div>
-      <div class="meta" id="updated"></div>
+      <div class="runrow">
+        <a class="runbtn" id="runbtn" href="https://github.com/cloudburstt1993-a11y/prop-desk/actions/workflows/refresh.yml" target="_blank" rel="noopener" title="Opens the update job on GitHub. Sign in as the repository owner and click Run workflow.">Update now</a>
+        <div class="meta" id="updated"></div>
+      </div>
+      <div class="runstat" id="runstat" role="status" aria-live="polite" hidden></div>
     </div>
   </header>
 
@@ -814,5 +826,55 @@ document.querySelectorAll(".sportsw button").forEach(b => {
   b.onclick = () => setSport(b.dataset.sport);
 });
 setSport(store.get("sport") || "nba");
+
+// ---------- update now ----------
+// The button opens the GitHub job (the owner clicks "Run workflow" there); this page then
+// follows the run through GitHub's public API and swaps in the new numbers when it lands.
+const REPO = "cloudburstt1993-a11y/prop-desk";
+const API = "https://api.github.com/repos/" + REPO;
+let watching = null;
+function runStatus(html) { const el = $("#runstat"); el.hidden = !html; el.innerHTML = html || ""; }
+async function gh(path, accept) {
+  const r = await fetch(API + path, { cache: "no-store", headers: accept ? { Accept: accept } : {} });
+  if (!r.ok) throw new Error("GitHub " + r.status);
+  return accept ? r.text() : r.json();
+}
+async function loadLatest() {
+  const head = await gh("/commits/main");
+  const html = await gh("/contents/index.html?ref=" + head.sha, "application/vnd.github.raw");
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const [k, id] of [["nba", "data"], ["nfl", "data-nfl"]]) {
+    const el = doc.getElementById(id);
+    try { const v = el && JSON.parse(el.textContent); if (v && v.games) SPORTS[k] = v; } catch (e) {}
+  }
+  setSport(SP);
+}
+async function watchRun(since) {
+  const btn = $("#runbtn");
+  btn.setAttribute("aria-busy", "true");
+  btn.textContent = "Waiting…";
+  runStatus(`On GitHub, click <strong>Run workflow</strong>, then the green <strong>Run workflow</strong> button. This page updates itself when the new numbers are ready, usually 2–4 minutes.`);
+  const deadline = Date.now() + 20 * 60 * 1000;
+  const done = msg => { clearInterval(watching); watching = null; btn.removeAttribute("aria-busy"); btn.textContent = "Update now"; runStatus(msg); };
+  const tick = async () => {
+    if (Date.now() > deadline) return done("No update finished in 20 minutes. Check the job on GitHub.");
+    let run;
+    try { run = (await gh("/actions/workflows/refresh.yml/runs?per_page=1")).workflow_runs[0]; }
+    catch (e) { return done("This page can't check GitHub from here. Open the GitHub link of the app in a few minutes to see the new numbers."); }
+    if (!run || new Date(run.created_at).getTime() < since - 60000) return;
+    if (run.status !== "completed") {
+      btn.textContent = "Running…";
+      runStatus(`<strong>Running the numbers</strong> (started ${new Date(run.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} MT). Stay on this page; it updates itself.`);
+      return;
+    }
+    if (run.conclusion !== "success") return done(`The update failed on GitHub, so the page still shows the last good numbers. <a href="${run.html_url}" target="_blank" rel="noopener">See what happened</a>.`);
+    try { await loadLatest(); done("<strong>Updated.</strong> These are the newest numbers."); }
+    catch (e) { done("The update finished. Reload the page to see the new numbers."); }
+  };
+  clearInterval(watching);
+  watching = setInterval(tick, 15000);
+  setTimeout(tick, 5000);
+}
+$("#runbtn").addEventListener("click", () => { if (!watching) watchRun(Date.now()); });
 showTab((location.hash || "").slice(1));
 </script>
